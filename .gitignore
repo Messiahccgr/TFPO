@@ -1,0 +1,66 @@
+# Python bytecode and local runtime cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# HuggingFace / datasets download caches
+.cache/
+**/.cache/
+
+# HuggingFace datasets transform cache files
+cache-*.arrow
+**/cache-*.arrow
+
+# Local dataset payloads; regenerate or download them instead of committing.
+/data/
+/train_data/Big-Math-RL-Verified/
+/train_data/Big-Math-RL-Verified-2k/
+/train_data/Big-Math-RL-Verified-Processed/
+/train_data/NuminaMath-1.5/
+/train_data/NuminaMath-1.5-hard-verifiable_2k/
+/train_data/competition_math/
+/train_data/competition_math_bigmath_format_2k/
+/train_data/prepare_train_data_summary.json
+/eval_data/AIME24/
+/eval_data/GSM8K/
+/eval_data/MATH-500/
+train_data/**/*.arrow
+train_data/**/*.parquet
+eval_data/**/*.arrow
+eval_data/**/*.parquet
+
+# Local assistant/tool state
+.agents/
+.codex/
+.claude/settings.local.json
+.git-real/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+
+# LaTeX build artifacts
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.run.xml
+*.synctex.gz
+*.toc
+
+# Deprecated root eval entrypoints; use eval/ instead.
+/eval_model.py
+/eval_deepseek_all.sh
