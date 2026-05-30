@@ -18,7 +18,8 @@ base + {
     max_sequence_length: 6500,
     // 4K responses double activation memory vs 2K; keep micro batch at 1.
     per_device_train_batch_size: 1,
-    gradient_accumulation_steps: 8,
+    // 1 (per-device) x 6 (train ranks) x 3 (accum) = effective batch 18.
+    gradient_accumulation_steps: 3,
   },
 
   evaluation+: {

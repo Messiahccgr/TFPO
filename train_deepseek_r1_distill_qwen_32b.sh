@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Two-phase RL training for DeepSeek-R1-Distill-Qwen-32B (2-train + 2-infer GPUs).
+# Two-phase RL training for DeepSeek-R1-Distill-Qwen-32B (6-train + 2-infer GPUs).
 #
-# Layout (4xH100): GPU 0,1 = HF Trainer (DeepSpeed ZeRO-3 + CPU param/optimizer
-# offload); GPU 2,3 = vLLM TP=2.
+# Layout (8xH100): GPU 0,1,2,3,4,5 = HF Trainer (DeepSpeed ZeRO-3 +
+# CPU param/optimizer offload); GPU 6,7 = vLLM TP=2.
 #
 # Env (set before running):
 #   export LLM_PROVIDER=anthropic
@@ -12,8 +12,8 @@
 #
 # Override-able env:
 #   APP_SEED              (default 42)
-#   CUDA_VISIBLE_DEVICES  (default 0,1,2,3 — all 4 GPUs must be visible)
-#   TRAIN_GPUS            (default 0,1   — HF/DeepSpeed train ranks)
+#   CUDA_VISIBLE_DEVICES  (default 0,1,2,3,4,5,6,7 — all 8 GPUs must be visible)
+#   TRAIN_GPUS            (default 0,1,2,3,4,5 — HF/DeepSpeed train ranks)
 #                          vLLM GPU ids come from the jsonnet config.
 #   PHASE1_CONFIG, PHASE2_CONFIG
 #   PHASE1_OUTPUT_PREFIX, PHASE2_OUTPUT_PREFIX
@@ -22,7 +22,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0,1,2,3}"
+export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0,1,2,3,4,5,6,7}"
 export APP_SEED="${APP_SEED:-42}"
 
 # LLM-as-judge ON by default (training rejudge + eval re-judge, enabled in the
@@ -32,7 +32,8 @@ export APP_SEED="${APP_SEED:-42}"
 export LLM_PROVIDER="${LLM_PROVIDER:-anthropic}"
 export LLM_BASE_URL="${LLM_BASE_URL:-https://api.minimaxi.com/anthropic}"
 export LLM_MODEL="${LLM_MODEL:-MiniMax-M2.7}"
-TRAIN_GPUS="${TRAIN_GPUS:-0,1}"
+TRAIN_GPUS="${TRAIN_GPUS:-0,1,2,3,4,5}"
+NUM_TRAIN_PROCS="$(awk -F',' '{print NF}' <<< "${TRAIN_GPUS}")"
 
 PHASE1_CONFIG="${PHASE1_CONFIG:-configs/experiments/deepseek_r1_distill_qwen_32b_curriculum_phase1_2k.jsonnet}"
 PHASE2_CONFIG="${PHASE2_CONFIG:-configs/experiments/deepseek_r1_distill_qwen_32b_curriculum_phase2_4k.jsonnet}"
@@ -58,7 +59,7 @@ find_latest_actor_ckpt() {
 
 echo "==== DeepSeek-R1-Distill-Qwen-32B two-phase RL ===="
 echo "  visible_gpus:   ${CUDA_VISIBLE_DEVICES}"
-echo "  train_gpus:     ${TRAIN_GPUS}"
+echo "  train_gpus:     ${TRAIN_GPUS} (num_processes=${NUM_TRAIN_PROCS})"
 echo "  phase1_config:  ${PHASE1_CONFIG}"
 echo "  phase2_config:  ${PHASE2_CONFIG}"
 echo "  llm_provider:   ${LLM_PROVIDER:-<unset>}"
@@ -70,7 +71,7 @@ echo "[Phase 1] starting (max response 2K, 500 iter)"
 # One shared run tag for ALL ranks (else each rank makes its own timestamped
 # output dir and the disk-backed teacher-pairs hand-off breaks across ranks).
 export APP_RUN_TAG="$(date +%Y%m%d_%H%M%S)"
-accelerate launch --num_processes 2 --num_machines 1 --mixed_precision bf16 --dynamo_backend no --multi_gpu \
+accelerate launch --num_processes "${NUM_TRAIN_PROCS}" --num_machines 1 --mixed_precision bf16 --dynamo_backend no --multi_gpu \
   --gpu_ids "${TRAIN_GPUS}" \
   run.py --configs "${PHASE1_CONFIG}"
 
@@ -91,7 +92,7 @@ echo "[Phase 2] starting (max response 4K, 500 iter, init from Phase 1)"
 export APP_RUN_TAG="$(date +%Y%m%d_%H%M%S)"
 APP_ACTOR_NAME_OR_PATH="${PHASE1_FINAL_CKPT}" \
 APP_TOKENIZER_NAME_OR_PATH="${PHASE1_FINAL_CKPT}" \
-accelerate launch --num_processes 2 --num_machines 1 --mixed_precision bf16 --dynamo_backend no --multi_gpu \
+accelerate launch --num_processes "${NUM_TRAIN_PROCS}" --num_machines 1 --mixed_precision bf16 --dynamo_backend no --multi_gpu \
   --gpu_ids "${TRAIN_GPUS}" \
   run.py --configs "${PHASE2_CONFIG}"
 

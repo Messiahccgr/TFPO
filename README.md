@@ -64,7 +64,7 @@ bash train_deepseek_r1_distill_qwen_1.5b.sh
 # 14B: 4 trainer GPUs + 2 vLLM GPUs
 bash train_deepseek_r1_distill_qwen_14b.sh
 
-# 32B: 2 trainer GPUs + 2 vLLM GPUs
+# 32B: 6 trainer GPUs + 2 vLLM GPUs
 bash train_deepseek_r1_distill_qwen_32b.sh
 ```
 
